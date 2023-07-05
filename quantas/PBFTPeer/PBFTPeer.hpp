@@ -1,6 +1,5 @@
 /*
 Copyright 2022
-
 This file is part of QUANTAS.
 QUANTAS is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 QUANTAS is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
@@ -21,6 +20,7 @@ namespace quantas{
         int 				Id = -1; // node who sent the message
         int					trans = -1; // the transaction id
         int                 sequenceNum = -1;
+        int                 viewNum = -1;
         string              messageType = ""; // phase
         int                 roundSubmitted;
     };
@@ -32,6 +32,8 @@ namespace quantas{
         PBFTPeer                             (const PBFTPeer &rhs);
         ~PBFTPeer                            ();
 
+        //
+        void                 initParameters(const vector<Peer<PBFTPeerMessage>*>& _peers, json parameters) override;
         // perform one step of the Algorithm with the messages in inStream
         void                 performComputation();
         // perform any calculations needed at the end of a round such as determine throughput (only ran once, not for every peer)
@@ -45,8 +47,16 @@ namespace quantas{
 
         // string indicating the current status of a node
         string                          status = "pre-prepare";
+        // tracks whether or not node has crashed
+        bool                            crashed = false;
+        // has voted for a view-change and paused (only accepts view-change/new-view)
+        bool                            paused = false;
         // current squence number
         int                             sequenceNum = 0;
+        // current view number
+        int                             viewNum = 0;
+        // elapsed time (rounds) since receiving a request
+        int                             timer = 0;
         // vector of vectors of messages that have been received
         vector<vector<PBFTPeerMessage>> receivedMessages;
         // vector of recieved transactions
@@ -57,6 +67,14 @@ namespace quantas{
         int                             latency = 0;
         // rate at which to submit transactions ie 1 in x chance for all n nodes
         int                             submitRate = 20;
+        // percentage of a peer crashing
+        static int                      crashRate;
+        // amount of rounds before sending a view-change msg
+        static int                      timeout;
+        // leader of current view
+        static int                      leaderId;
+        // next leader of the next view
+        static int                      candidateId;
         
         // the id of the next transaction to submit
         static int                      currentTransaction;
@@ -68,6 +86,8 @@ namespace quantas{
         void                  checkContents();
         // submitTrans creates a transaction and broadcasts it to everyone
         void                  submitTrans(int tranID);
+        // submitViewChange sends either view-change or new-view (upon 2f view-changes to the next leader)
+        void                  submitViewChange(std::string messageType);
     };
 
     Simulation<quantas::PBFTPeerMessage, quantas::PBFTPeer>* generateSim();
