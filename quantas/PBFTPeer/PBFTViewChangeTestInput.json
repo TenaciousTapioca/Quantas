@@ -1,0 +1,64 @@
+{
+    "experiments": [
+      {
+        "algorithm": "PBFT",
+        "logFile": "PBFT_Timeout3.json",
+        "threadCount": 1,
+        "parameters": {
+          "numOfCrashes": 11,
+          "timeout": 3
+        },
+        "distribution": {
+          "type": "uniform",
+          "maxDelay": 1
+        },
+        "topology": {
+          "type": "complete",
+          "initialPeers": 31,
+          "totalPeers": 31
+        },
+        "tests": 10,
+        "rounds": 1000
+      },
+      {
+        "algorithm": "PBFT",
+        "logFile": "PBFT_Timeout5.json",
+        "threadCount": 1,
+        "parameters": {
+          "numOfCrashes": 11,
+          "timeout": 5
+        },
+        "distribution": {
+          "type": "uniform",
+          "maxDelay": 1
+        },
+        "topology": {
+          "type": "complete",
+          "initialPeers": 31,
+          "totalPeers": 31
+        },
+        "tests": 10,
+        "rounds": 1000
+      },
+      {
+        "algorithm": "PBFT",
+        "logFile": "PBFT_Timeout10.json",
+        "threadCount": 1,
+        "parameters": {
+          "numOfCrashes": 11,
+          "timeout": 10
+        },
+        "distribution": {
+          "type": "uniform",
+          "maxDelay": 1
+        },
+        "topology": {
+          "type": "complete",
+          "initialPeers": 31,
+          "totalPeers": 31
+        },
+        "tests": 10,
+        "rounds": 1000
+      }
+    ]
+  }
