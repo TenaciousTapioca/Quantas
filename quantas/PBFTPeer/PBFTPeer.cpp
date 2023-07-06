@@ -63,7 +63,7 @@ namespace quantas {
 			}
 
 			// Upon 2f view-changes, leader of view(v+1) broadcasts a new-view
-			if (count > (neighbors().size() * 2/ 3)) {
+			if (count >= ((neighbors().size() + 1) * 2/ 3)) {
 				submitViewChange(messageType::new_view);
 				submitTrans(currentTransaction);
 			}
@@ -170,7 +170,7 @@ namespace quantas {
 					count++;
 				}
 			}
-			if (count >= (neighbors().size() * 2 / 3)) {
+			if (count >= ((neighbors().size() + 1) * 2 / 3)) {
 				status = statusType::commit;
 				PBFTPeerMessage newMsg = receivedMessages[sequenceNum][0];
 				newMsg.type = messageType::commit;
@@ -188,7 +188,7 @@ namespace quantas {
 					count++;
 				}
 			}
-			if (count > (neighbors().size() * 2 / 3)) {
+			if (count > ((neighbors().size() + 1) * 2 / 3)) {
 				status = statusType::pre_prepare;
 				timer = 0;
 				confirmedTrans.push_back(receivedMessages[sequenceNum][0]);

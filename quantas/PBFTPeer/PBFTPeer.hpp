@@ -76,7 +76,7 @@ namespace quantas{
         int                             latency = 0;
         // rate at which to submit transactions ie 1 in x chance for all n nodes
         int                             submitRate = 20;
-        // percentage of a peer crashing
+        // amount of peers crashed at the start 
         static int                      numOfCrashes;
         // amount of rounds before sending a view-change msg
         static int                      timeout;
