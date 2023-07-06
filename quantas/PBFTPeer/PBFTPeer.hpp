@@ -15,13 +15,17 @@ You should have received a copy of the GNU General Public License along with QUA
 
 namespace quantas{
 
+    enum class messageType { empty, pre_prepare, prepare, commit, trans, view_change, new_view };
+    enum class statusType  { pre_prepare, prepare, commit };
+
     struct PBFTPeerMessage {
 
         int 				Id = -1; // node who sent the message
         int					trans = -1; // the transaction id
         int                 sequenceNum = -1;
         int                 viewNum = -1;
-        string              messageType = ""; // phase
+        //string              messageType = ""; // phase
+        messageType         type = messageType::empty;
         int                 roundSubmitted;
     };
 
@@ -46,7 +50,8 @@ namespace quantas{
         
 
         // string indicating the current status of a node
-        string                          status = "pre-prepare";
+        //string                          status = "pre-prepare";
+        statusType                      status = statusType::pre_prepare;
         // tracks whether or not node has crashed
         bool                            crashed = false;
         // has voted for a view-change and paused (only accepts view-change/new-view)
@@ -57,6 +62,10 @@ namespace quantas{
         int                             viewNum = 0;
         // elapsed time (rounds) since receiving a request
         int                             timer = 0;
+        // leader of current view
+        int                             leaderId;
+        // next leader of the next view
+        int                             candidateId;
         // vector of vectors of messages that have been received
         vector<vector<PBFTPeerMessage>> receivedMessages;
         // vector of recieved transactions
@@ -68,13 +77,9 @@ namespace quantas{
         // rate at which to submit transactions ie 1 in x chance for all n nodes
         int                             submitRate = 20;
         // percentage of a peer crashing
-        static int                      crashRate;
+        static int                      numOfCrashes;
         // amount of rounds before sending a view-change msg
         static int                      timeout;
-        // leader of current view
-        static int                      leaderId;
-        // next leader of the next view
-        static int                      candidateId;
         
         // the id of the next transaction to submit
         static int                      currentTransaction;
@@ -87,7 +92,7 @@ namespace quantas{
         // submitTrans creates a transaction and broadcasts it to everyone
         void                  submitTrans(int tranID);
         // submitViewChange sends either view-change or new-view (upon 2f view-changes to the next leader)
-        void                  submitViewChange(std::string messageType);
+        void                  submitViewChange(messageType type);
     };
 
     Simulation<quantas::PBFTPeerMessage, quantas::PBFTPeer>* generateSim();
