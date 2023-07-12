@@ -1,5 +1,6 @@
 /*
 Copyright 2022
+
 This file is part of QUANTAS.
 QUANTAS is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 QUANTAS is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
@@ -12,6 +13,7 @@ You should have received a copy of the GNU General Public License along with QUA
 namespace quantas {
 
 	int PBFTPeer::currentTransaction = 1;
+	int PBFTPeer::maxCrashes = 0;
 	int PBFTPeer::numOfCrashes = 0;
 	int PBFTPeer::timeout = 0;
 
@@ -25,75 +27,80 @@ namespace quantas {
 	}
 
 	void PBFTPeer::performComputation() {
-		if (id() == leaderId && getRound() == 0 && !crashed) {
+		// randomly crash future leaders
+		const int randNum = randMod(100);
+		int chance = (getRound() >= 100) ? 100 : getRound();
+		if ((id() < maxCrashes) && !crashed && (numOfCrashes < maxCrashes) && (randNum < chance)) {
+			crashed = true;
+			++numOfCrashes;
+		}
+		if (crashed) { return; }
+
+		if (id() == leaderId && getRound() == 0) {
 			submitTrans(currentTransaction);
 		}
 		checkInStrm();
 
-		if (!paused && !crashed)
+		// perform the regular phases if no view-change msgs were sent
+		if (viewJumps == 0)
 			checkContents();
 
-		// Check for view-change/new-view msgs and increment timer
-		if (id() == leaderId && crashed) { return; }
+		// increment timer when no valid pre-prepare msg was processed
+		if (!paused) ++timer;
 
-		if (!crashed && !paused && timer >= timeout) { // send view-change
-			paused = true;
+		// calculate the view-change timeout (v+1: 1T, v+2: 2T, . . . , v+k: kT)
+		if ((viewJumps > 1) && (view_changeTimeout / timeout) == (viewJumps - 1)) {
+			view_changeTimeout += timeout;
+		}
+
+		if (timer >= view_changeTimeout) { // send view-change
+			timer = 0;
+			++viewJumps;
+			candidateId = (viewNum + viewJumps) % (neighbors().size() + 1);
 			submitViewChange(messageType::view_change);
 		} else if ((receivedMessages.size() - 1) == sequenceNum) { // go to new view
-			if (receivedMessages[sequenceNum].back().type == messageType::new_view) {
-				paused = false;
-				viewNum += 1;
-				leaderId = candidateId;
-				candidateId = (leaderId + 1) % (neighbors().size() + 1);
+			PBFTPeerMessage message = receivedMessages[sequenceNum].back();
+			if (message.type == messageType::new_view) {
 				timer = 0;
+				viewJumps = 0;
+				viewNum = message.viewNum;
+				view_changeTimeout = timeout;
+				leaderId = (viewNum) % (neighbors().size() + 1);
+				candidateId = (viewNum + 1) % (neighbors().size() + 1);
 				receivedMessages.pop_back();
 			}
-		} else {
-			++timer;
-		}
 
-		// Check if 2f valid view-changes for view(v+1) were received
-		if (id() == candidateId && (receivedMessages.size() - 1) == sequenceNum) {
-			int count = 0;
-			for (int i = 0; i < receivedMessages[sequenceNum].size(); ++i) {
-				PBFTPeerMessage message = receivedMessages[sequenceNum][i];
-				if (message.type == messageType::view_change && message.viewNum == (viewNum + 1)) {
-					++count;
+			if ((id() == candidateId) && (receivedMessages.size() - 1) == sequenceNum) {
+				// Check if 2f+1 valid view-changes for a greater view were received
+				int count = 0;
+				for (int i = 0; i < receivedMessages[sequenceNum].size(); ++i) {
+					PBFTPeerMessage message = receivedMessages[sequenceNum][i];
+					if (message.type == messageType::view_change && message.viewNum == (viewNum + viewJumps)) {
+						++count;
+					}
+				}
+
+				// Upon 2f+1 view-changes, leader of the next view broadcasts a new-view
+				if (count >= 2 * (neighbors().size() / 3) + 1) {
+					submitViewChange(messageType::new_view);
+					submitTrans(currentTransaction);
 				}
 			}
-
-			// Upon 2f view-changes, leader of view(v+1) broadcasts a new-view
-			if (count >= ((neighbors().size() + 1) * 2/ 3)) {
-				submitViewChange(messageType::new_view);
-				submitTrans(currentTransaction);
-			}
 		}
-		
 	}
 
 	void PBFTPeer::initParameters(const vector<Peer<PBFTPeerMessage>*>& _peers, json parameters) {
-		if (parameters.contains("numOfCrashes")) {
-			numOfCrashes = parameters["numOfCrashes"];
+		if (parameters.contains("maxCrashes")) {
+			maxCrashes = parameters["maxCrashes"];
 		}
 		if (parameters.contains("timeout")) {
 			timeout = parameters["timeout"];
-			--timeout;
 		}
 
 		const vector<PBFTPeer*> peers = reinterpret_cast<vector<PBFTPeer*> const&>(_peers);
 
-		int count = 0;
-		const int leader = peers[0]->viewNum % peers.size();
-		const int candidate = (peers[0]->viewNum + 1) % peers.size();
 		for (int i = 0; i < peers.size(); ++i) {
-			peers[i]->leaderId = leader;
-			peers[i]->candidateId = candidate;
-
-			// Set the first "numOfCrashes" peers to be crashed
-			if (count < numOfCrashes) {
-				peers[i]->crashed = true;
-				++count;
-			}
+			peers[i]->view_changeTimeout = timeout;
 		}
 	}
 
@@ -163,6 +170,8 @@ namespace quantas {
 		}
 
 		if (status == statusType::prepare) {
+			paused = true;	// stop the timer to prevent view-changes during regular phases
+			timer = 0;
 			int count = 0;
 			for (int i = 0; i < receivedMessages[sequenceNum].size(); i++) {
 				PBFTPeerMessage message = receivedMessages[sequenceNum][i];		
@@ -170,7 +179,7 @@ namespace quantas {
 					count++;
 				}
 			}
-			if (count >= ((neighbors().size() + 1) * 2 / 3)) {
+			if (count >= 2 * (neighbors().size() / 3)) {  // primary does not send a prepare msg
 				status = statusType::commit;
 				PBFTPeerMessage newMsg = receivedMessages[sequenceNum][0];
 				newMsg.type = messageType::commit;
@@ -188,9 +197,9 @@ namespace quantas {
 					count++;
 				}
 			}
-			if (count > ((neighbors().size() + 1) * 2 / 3)) {
+			if (count >= 2 * (neighbors().size() / 3) + 1) {
 				status = statusType::pre_prepare;
-				timer = 0;
+				paused = false;
 				confirmedTrans.push_back(receivedMessages[sequenceNum][0]);
 				latency += getRound() - receivedMessages[sequenceNum][0].roundSubmitted;
 				sequenceNum++;
@@ -217,7 +226,7 @@ namespace quantas {
 	void PBFTPeer::submitViewChange(messageType type) {
 		PBFTPeerMessage message;
 		message.type = type;
-		message.viewNum = viewNum + 1;
+		message.viewNum = viewNum + viewJumps;
 		message.sequenceNum = sequenceNum;
 		message.Id = id();
 		message.roundSubmitted = getRound();
