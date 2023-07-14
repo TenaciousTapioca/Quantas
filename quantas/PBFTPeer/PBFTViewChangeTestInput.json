@@ -5,7 +5,7 @@
         "logFile": "PBFT_Timeout3.json",
         "threadCount": 1,
         "parameters": {
-          "numOfCrashes": 11,
+          "maxCrashes": 11,
           "timeout": 3
         },
         "distribution": {
@@ -25,7 +25,7 @@
         "logFile": "PBFT_Timeout5.json",
         "threadCount": 1,
         "parameters": {
-          "numOfCrashes": 11,
+          "maxCrashes": 11,
           "timeout": 5
         },
         "distribution": {
@@ -45,7 +45,7 @@
         "logFile": "PBFT_Timeout10.json",
         "threadCount": 1,
         "parameters": {
-          "numOfCrashes": 11,
+          "maxCrashes": 11,
           "timeout": 10
         },
         "distribution": {
