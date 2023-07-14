@@ -51,7 +51,6 @@ namespace quantas {
         }
 
         const vector<PBFTPeer *> peers = reinterpret_cast<vector<PBFTPeer *> const &>(_peers);
-        int count = 0;
         for (int i = 0; i < peers.size(); ++i) {
             peers[i]->view_changeTimeout = timeout;
         }
