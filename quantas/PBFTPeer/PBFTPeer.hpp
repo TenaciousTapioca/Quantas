@@ -21,8 +21,8 @@ namespace quantas{
 
     struct PBFTPeerMessage {
 
-        int 				Id = -1; // node who sent the message
-        int					trans = -1; // the transaction id
+        int                 Id = -1; // node who sent the message
+        int                 trans = -1; // the transaction id
         int                 sequenceNum = -1;
         int                 viewNum = -1;
         messageType         type = messageType::empty;
@@ -82,8 +82,6 @@ namespace quantas{
         int                             submitRate = 20;
         // max amount of peers that *can* crash in a single test
         static int                      maxCrashes;
-        // amount of peers that have crashed so far
-        static int                      numOfCrashes;
         // amount of rounds before sending a view-change msg
         static int                      timeout;
         
